@@ -169,7 +169,7 @@
                     margin-bottom: -1px;
                     position: relative;
                     display: flex;
-                    align-items: center;
+                    align-items: flex-end;
                     justify-content: center;
                     color: #333333;
                     background: #FFFFFF;
@@ -221,19 +221,55 @@
         .matchInfo {
             display: flex;
             flex-direction: row;
-            justify-content: space-around;
+        }
 
+        .image {
+            padding: 2% 5% 0% 2%;
+        }
+
+        .descHead {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+        }
+
+        #startTime {
+            text-align: right;
+        }
+
+        a {
+            color: inherit;
+        }
+
+        .participantsContainer {
+            display: flex;
+            flex-direction: row;
+            padding: 1em 0em 0em 0em;
+            justify-content: space-between;
+            margin: 1em;
+        }
+
+        .participants {
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-end;
+        }
+
+        .participantIcon {
+            padding: 10%;
         }
     </style>
 </head>
 <body>
-    <div id="test"></div>
     <div id="calendar"></div>
     <div class="ui modal">
 
         <i class="close icon"></i>
         <div class="header">
-            Розклад матчів
+            <div class="descHead">
+                <span>Розклад матчів</span>
+                <span id="startTime"></span>
+            </div>
         </div>
         <div class="ModalContent"></div>
         <div class="actions">
@@ -243,11 +279,9 @@
     <script>
         /* Calendar */
         class Calendar {
-            constructor(testelem, element, locale, callback, events) {
+            constructor(element, locale, events) {
                 this.element = element;
-                this.testelem = testelem;
                 this.locale = locale;
-                this.callback = callback;
                 this.events = events;
                 moment.locale(locale);
                 this.show(moment().year());
@@ -292,19 +326,19 @@
                         ' draggable="false"><span class="num">1</span><div class="content"></div></a>' +
                         _.range(2, d1.daysInMonth() + 1).reduce(function (MM, d) {
                             var curDate = year + '-' + ('00' + (m + 1)).slice(-2) + '-' + ('00' + d).slice(-2);
-
+                            var bHasMatch = (self.checkDate(curDate));
                             return MM += '<a href="#" class="' +
                                 (year == moment().year() && m == moment().month() && d == moment().date()
                                     ? 'active '
                                     : ''
-                                ) + (self.checkDate(curDate) ? 'ui red empty circular label eventToShow ' : '') +
+                                ) + (bHasMatch ? 'eventToShow ' : '') +
                                 'D" data-date="' +
                                 curDate +
                                 '" draggable="false">' +
                                 '<span class="num">' +
                                 d +
-                                '<span class="hover" data-content="Add users to your feed"><i class="add tiny icon"></i></span>' +
                                 '</span>' +
+                                '<div class="' + (bHasMatch ? 'ui red empty circular label ' : '') + '"></div>' +
                                 '<div class="content"></div></a>';
                         },
                             '') +
@@ -321,7 +355,6 @@
                         t = [];
                     }
                 }
-                //this.testelem.innerHTML = test;
                 this.element.innerHTML =
                     '<nav><a href="#" class="nav prev" draggable="false"><svg viewBox="0 0 512 512"><path d="M189.8,349.7c3.1-3.1,3-8,0-11.3L123.4,264H408c4.4,0,8-3.6,8-8c0-4.4-3.6-8-8-8H123.4l66.3-74.4c2.9-3.4,3.2-8.1,0.1-11.2c-3.1-3.1-8.5-3.3-11.4-0.1c0,0-79.2,87-80,88S96,253.1,96,256s1.6,4.9,2.4,5.7s80,88,80,88c1.5,1.5,3.6,2.3,5.7,2.3C186.2,352,188.2,351.2,189.8,349.7z"/></svg></a><div class="title"><strong>' +
                     year +
@@ -332,22 +365,14 @@
                     '</div>';
                 this.element.querySelector('.prev').addEventListener('click', () => { this.show(--this.year); });
                 this.element.querySelector('.next').addEventListener('click', () => { this.show(++this.year); });
-                this.element.querySelectorAll('.D').forEach((element) => {
-                    element.addEventListener('click', (event) => {
-                        var element = event.target;
-                        while (element) {
-                            if (element.hasAttribute('data-date')) {
-                                this.callback(element.getAttribute('data-date'));
-                                break;
-                            } else {
-                                element = element.parentElement;
-                            }
-                        }
-                    });
-                });
 
-                $('.hover').popup({
-                    position: 'top center'
+                self.events.map(function (event) {
+                    var elem = $('*[data-date=' + event.date + ']');
+                    elem.attr('data-tooltip',
+                        (elem.attr('data-tooltip') ? elem.attr('data-tooltip') : '') + event.description + ' / ');
+                    elem.popup({
+                        position: 'top right'
+                    });
                 });
 
                 $('.eventToShow').on('click',
@@ -355,19 +380,32 @@
 
                         var curDate = this.getAttribute('data-date');
                         var arrElem = self.events.filter(elem => elem.date === curDate);
-                        var info = '';
-
+                        var modalInfo = '';
                         for (var i = 0; i < arrElem.length; i++) {
-                            info += '<div class="matchInfo"><div class="image"><img src="' + arrElem[i].stadiumIcon + '" height="200em" width="300em" id="stadiumImage' + i + '"/></div>' +
-                                '<div class="description">' +
-                                '<p><strong>Матч:</strong> ' + arrElem[i].description + '</p>' +
-                                '<p><strong>Місто проведення:</strong> ' + arrElem[i].stadiumLocation +'</p>'+
-                                '</div>' +
-                                '</div><hr/>';
-                        }
-                        console.log(info);
-                        $('.ModalContent').html(info);
+                            var participantsInfo = '<div class="participantsContainer">';
+                            if (arrElem[i].participants) {
+                                participantsInfo += '<h2>Відвідають: </h2><div class="participants">';
+                                for (var j = 0; j < arrElem[i].participants.length; j++) {
+                                    participantsInfo += '<a target="_blank" href="' + arrElem[i].participants[j].url + '" alt="' +
+                                        arrElem[i].participants[j].name + '"><img class="participantIcon" width="40em" height="40em" src="' + arrElem[i].participants[j].avatar + '">';
+                                }
+                            }
 
+                            participantsInfo += '</div></div>';
+
+                            modalInfo += '<a target="_blank" href=' + arrElem[i].matchLink + '><div class="matchInfo"><div class="image"><img src="' + arrElem[i].stadiumIcon + '" height="200em" width="300em" class="stadiumImage"/></div>' +
+                                '<div class="description">' +
+                                '<p><h1>' + arrElem[i].description + '</h1></p>' +
+                                '<p><strong>Місто проведення:</strong> ' + arrElem[i].stadiumLocation + '</p>' +
+                                '</div>' +
+                                '</div></a>' +
+                                participantsInfo +
+                                '<hr/>';
+                        }
+
+
+                        $('.ModalContent').html(modalInfo);
+                        $('#startTime').html(curDate);
                         $('.ui.modal').modal('show');
                     });
             }
@@ -380,7 +418,18 @@
                 event: "Football match",
                 description: "Верес - Олександрія",
                 stadiumLocation: "Львів",
-                stadiumIcon: "http://sportanalytic.com/uploads/images/default/4150_vo6.jpeg"
+                stadiumIcon: "http://sportanalytic.com/uploads/images/default/4150_vo6.jpeg",
+                matchLink: "http://football.ua/ukraine/game/57831.html",
+                participants: [{
+                    name: "Bogdan Balanyk",
+                    url: "https://www.facebook.com/balanyk.bv",
+                    avatar: "https://pp.userapi.com/c837427/v837427199/459b4/db2AU9D1heM.jpg"
+                },
+                {
+                    name: "Leo Messi",
+                    url: "https://www.facebook.com/leomessi/",
+                    avatar: "https://scontent.fhen1-1.fna.fbcdn.net/v/t1.0-9/18765665_1835592963126956_3937723892634433677_n.png?oh=6887b61fb5fbbf5018003002c8f58741&oe=59FE01F2"
+                }]
             },
             {
                 date: "2017-07-22",
@@ -388,7 +437,13 @@
                 event: "Football match",
                 description: "Шахтар - Динамо",
                 stadiumLocation: "Харків",
-                stadiumIcon: "https://gs-img.112.ua/original/2016/09/08/257641.jpg"
+                stadiumIcon: "https://gs-img.112.ua/original/2016/09/08/257641.jpg",
+                matchLink: "http://football.ua/ukraine/game/57383.html",
+                participants: [{
+                        name: "Leo Messi",
+                        url: "https://www.facebook.com/leomessi/",
+                        avatar: "https://scontent.fhen1-1.fna.fbcdn.net/v/t1.0-9/18765665_1835592963126956_3937723892634433677_n.png?oh=6887b61fb5fbbf5018003002c8f58741&oe=59FE01F2"
+                    }]
             },
             {
                 date: "2017-07-22",
@@ -396,16 +451,74 @@
                 event: "Football match",
                 description: "Чорноморець - Сталь",
                 stadiumLocation: "Одеса",
-                stadiumIcon: "https://image.zn.ua/media/images/original/Nov2015/131319.jpg"
+                stadiumIcon: "https://image.zn.ua/media/images/original/Nov2015/131319.jpg",
+                matchLink: "http://football.ua/ukraine/game/57382.html",
+                participants: [{
+                    name: "Bogdan Balanyk",
+                    url: "https://www.facebook.com/balanyk.bv",
+                    avatar: "https://pp.userapi.com/c837427/v837427199/459b4/db2AU9D1heM.jpg"
+                }]
+
+            },
+            {
+                date: "2017-07-29",
+                eventId: 0,
+                event: "Football match",
+                description: "Сталь - Шахтар",
+                stadiumLocation: "Київ",
+                stadiumIcon: "https://www.footboom.com/img/upload/2/410b4-Stal-Shakhter.jpeg",
+                matchLink: "http://football.ua/ukraine/game/57387.html"
+            },
+            {
+                date: "2017-07-29",
+                eventId: 0,
+                event: "Football match",
+                description: "Ворскла - Зірка",
+                stadiumLocation: "Полтава",
+                stadiumIcon: "https://www.footboom.com/img/upload/2/4f07b--Vorskla-Zirka.jpeg",
+                matchLink: "http://football.ua/ukraine/game/57385.html",
+                participants: [{
+                        name: "Leo Messi",
+                        url: "https://www.facebook.com/leomessi/",
+                        avatar: "https://scontent.fhen1-1.fna.fbcdn.net/v/t1.0-9/18765665_1835592963126956_3937723892634433677_n.png?oh=6887b61fb5fbbf5018003002c8f58741&oe=59FE01F2"
+                    }]
+            },
+            {
+                date: "2017-07-29",
+                eventId: 0,
+                event: "Football match",
+                description: "Динамо - Карпати",
+                stadiumLocation: "Київ",
+                stadiumIcon: "http://sportanalytic.com/uploads/images/default/3517_dko6.jpg",
+                matchLink: "http://football.ua/ukraine/game/57386.html",
+                participants: [{
+                    name: "Bogdan Balanyk",
+                    url: "https://www.facebook.com/balanyk.bv",
+                    avatar: "https://pp.userapi.com/c837427/v837427199/459b4/db2AU9D1heM.jpg"
+                },
+                {
+                    name: "Leo Messi",
+                    url: "https://www.facebook.com/leomessi/",
+                    avatar: "https://scontent.fhen1-1.fna.fbcdn.net/v/t1.0-9/18765665_1835592963126956_3937723892634433677_n.png?oh=6887b61fb5fbbf5018003002c8f58741&oe=59FE01F2"
+                }]
+            },
+            {
+                date: "2017-07-30",
+                eventId: 0,
+                event: "Football match",
+                description: "Олександрія - Зоря",
+                stadiumLocation: "Олександрія",
+                stadiumIcon: "https://www.footboom.com/img/upload/2/46028--Aleksandriya-Zarja.jpeg",
+                matchLink: "http://football.ua/ukraine/game/57389.html",
+                participants: [{
+                    name: "Bogdan Balanyk",
+                    url: "https://www.facebook.com/balanyk.bv",
+                    avatar: "https://pp.userapi.com/c837427/v837427199/459b4/db2AU9D1heM.jpg"
+                }]
             }
         ];
 
-        new Calendar(document.getElementById('test'), document.getElementById('calendar'),
-            'en',
-            function (date) {
-                alert(date);
-            },
-            events);
+        new Calendar(document.getElementById('calendar'), 'en', events);
 
 
     </script>
